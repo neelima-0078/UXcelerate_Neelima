@@ -18,4 +18,4 @@ Coordinating rescue robots after an earthquake isn't a navigation problem — it
 ### Try it
 Open `index.html` — or the live link below — and use the "Simulate detection" / "Simulate hazard" buttons top-right to see the map and incident feed update in real time.
 
-**Live demo:** _[add your GitHub Pages link here once step 6 is done]_
+**Live demo:** https://aegisrescuerobot.netlify.app
