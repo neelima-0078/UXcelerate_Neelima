@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AEGIS — Rescue Robot Coordination</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0D1210;
+    --panel:#161D1A;
+    --panel-2:#1D2622;
+    --line:#283530;
+    --text:#E8EDE9;
+    --text-dim:#8FA097;
+    --signal:#3DDC84;
+    --hazard:#FF6B35;
+    --priority:#FF3B5C;
+    --stale:#5B6B63;
+    --fog:#232B27;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    overflow:hidden;
+  }
+  h1,h2,h3,.disp{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:0.01em;}
+  .app{display:grid;grid-template-rows:56px 1fr;height:100vh;}
+
+  /* HEADER */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;border-bottom:1px solid var(--line);background:var(--panel);
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mark{width:10px;height:10px;border-radius:50%;background:var(--signal);box-shadow:0 0 8px var(--signal);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  .brand h1{font-size:22px;color:var(--text);}
+  .brand span{color:var(--text-dim);font-size:12px;}
+  .stat-strip{display:flex;gap:26px;}
+  .stat{text-align:right;}
+  .stat .v{font-size:16px;color:var(--text);font-weight:600;}
+  .stat .l{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;}
+
+  /* GRID */
+  .grid{display:grid;grid-template-columns:250px 1fr 300px;height:100%;overflow:hidden;}
+  .col{border-right:1px solid var(--line);overflow-y:auto;}
+  .col:last-child{border-right:none;}
+  .col-head{
+    padding:12px 14px 8px;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg);z-index:2;
+  }
+
+  /* FLEET */
+  .robot-card{
+    padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;
+    transition:background .15s;
+  }
+  .robot-card:hover,.robot-card.active{background:var(--panel-2);}
+  .robot-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .robot-id{font-weight:600;color:var(--text);font-size:14px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .dot.ok{background:var(--signal);box-shadow:0 0 6px var(--signal);}
+  .dot.warn{background:var(--hazard);}
+  .dot.stale{background:var(--stale);}
+  .robot-meta{color:var(--text-dim);font-size:11px;line-height:1.6;}
+  .conf-bar{height:3px;background:var(--fog);border-radius:2px;margin-top:6px;overflow:hidden;}
+  .conf-fill{height:100%;background:var(--signal);}
+  .robot-card.stale .conf-fill{background:var(--stale);}
+  .robot-card.warn .conf-fill{background:var(--hazard);}
+
+  /* MAP */
+  .map-wrap{position:relative;background:var(--fog);height:100%;}
+  svg{width:100%;height:100%;display:block;}
+  .legend{
+    position:absolute;bottom:14px;left:14px;background:rgba(13,18,16,.9);
+    border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:10px;color:var(--text-dim);
+    display:flex;gap:14px;
+  }
+  .legend div{display:flex;align-items:center;gap:6px;}
+  .legend .sw{width:10px;height:10px;border-radius:2px;}
+  .map-toolbar{position:absolute;top:14px;right:14px;display:flex;gap:8px;}
+  .btn{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;padding:8px 12px;border-radius:4px;
+    cursor:pointer;transition:.15s;
+  }
+  .btn:hover{border-color:var(--signal);color:var(--signal);}
+  .btn.danger:hover{border-color:var(--hazard);color:var(--hazard);}
+
+  /* FEED */
+  .feed-item{
+    padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;
+    animation:slideIn .3s ease;
+  }
+  @keyframes slideIn{from{opacity:0;transform:translateX(8px);}to{opacity:1;transform:translateX(0);}}
+  .feed-item:hover{background:var(--panel-2);}
+  .feed-top{display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:4px;}
+  .feed-type{font-weight:600;letter-spacing:.03em;}
+  .feed-type.survivor{color:var(--priority);}
+  .feed-type.hazard{color:var(--hazard);}
+  .feed-type.route{color:var(--signal);}
+  .feed-type.comm{color:var(--stale);}
+  .feed-body{color:var(--text);font-size:12px;line-height:1.5;}
+
+  /* MODAL */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+    align-items:center;justify-content:center;z-index:10;
+  }
+  .modal-backdrop.show{display:flex;}
+  .modal{
+    background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    width:360px;padding:20px;
+  }
+  .modal h2{font-size:20px;margin-bottom:4px;}
+  .modal .sub{color:var(--text-dim);font-size:11px;margin-bottom:16px;}
+  .field-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;}
+  .field-row .l{color:var(--text-dim);}
+  .modal-actions{display:flex;gap:8px;margin-top:16px;}
+  .modal-actions .btn{flex:1;text-align:center;}
+  .priority-tag{
+    display:inline-block;padding:3px 8px;border-radius:3px;font-size:10px;
+    font-weight:600;letter-spacing:.04em;
+  }
+  .priority-tag.high{background:rgba(255,59,92,.15);color:var(--priority);}
+  .priority-tag.med{background:rgba(255,107,53,.15);color:var(--hazard);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="mark"></div>
+      <h1>AEGIS</h1>
+      <span>rescue coordination · sector 7 · T+<span id="elapsed">04:12:30</span></span>
+    </div>
+    <div class="stat-strip">
+      <div class="stat"><div class="v" id="stat-robots">5</div><div class="l">robots active</div></div>
+      <div class="stat"><div class="v" id="stat-survivors">3</div><div class="l">survivors found</div></div>
+      <div class="stat"><div class="v" id="stat-mapped">61%</div><div class="l">area mapped</div></div>
+      <div class="stat"><div class="v" style="color:var(--hazard)" id="stat-hazards">2</div><div class="l">active hazards</div></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- FLEET -->
+    <div class="col" id="fleet-col">
+      <div class="col-head">Fleet<span id="fleet-count">5 units</span></div>
+      <div id="fleet-list"></div>
+    </div>
+
+    <!-- MAP -->
+    <div class="col map-wrap">
+      <svg id="map" viewBox="0 0 600 500"></svg>
+      <div class="map-toolbar">
+        <button class="btn" onclick="simulateSurvivor()">+ Simulate detection</button>
+        <button class="btn danger" onclick="simulateHazard()">+ Simulate hazard</button>
+      </div>
+      <div class="legend">
+        <div><span class="sw" style="background:var(--signal)"></span>confirmed</div>
+        <div><span class="sw" style="background:var(--stale)"></span>stale / last-known</div>
+        <div><span class="sw" style="background:var(--fog);border:1px solid var(--line)"></span>unmapped</div>
+        <div><span class="sw" style="background:var(--hazard)"></span>hazard zone</div>
+        <div><span class="sw" style="background:var(--priority)"></span>survivor</div>
+      </div>
+    </div>
+
+    <!-- FEED -->
+    <div class="col" id="feed-col">
+      <div class="col-head">Incident feed<span id="feed-count"></span></div>
+      <div id="feed-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<script>
+/* ---------- DATA ---------- */
+let robots = [
+  {id:'R-01', status:'ok', battery:78, conf:92, lastContact:'2s ago', x:180, y:120, note:'Actively mapping, strong signal'},
+  {id:'R-02', status:'stale', battery:41, conf:23, lastContact:'6m 40s ago', x:410, y:300, note:'Comms lost near collapsed structure — position is last known, not current'},
+  {id:'R-03', status:'ok', battery:65, conf:88, lastContact:'1s ago', x:300, y:220, note:'Escorting survivor toward extraction point'},
+  {id:'R-04', status:'warn', battery:19, conf:55, lastContact:'34s ago', x:470, y:130, note:'Low battery — recommend recall before next relay window'},
+  {id:'R-05', status:'ok', battery:90, conf:95, lastContact:'0s ago', x:100, y:350, note:'Idle, available for dispatch'},
+];
+
+let survivors = [
+  {id:'S-1', x:330, y:180, conf:82, priority:'high', detected:'audio + thermal', assigned:'R-03', note:'Voice detected under partial collapse, responsive'},
+  {id:'S-2', x:460, y:310, conf:47, priority:'med', detected:'thermal only, unconfirmed', assigned:'unassigned', note:'Heat signature only — needs visual confirmation before dispatch'},
+  {id:'S-3', x:160, y:260, conf:95, priority:'high', detected:'visual, confirmed', assigned:'R-01 (en route)', note:'Confirmed visual, conscious, minor injuries reported'},
+];
+
+let hazards = [
+  {x:400,y:260,r:55,label:'Gas leak — exclusion zone'},
+  {x:250,y:340,r:40,label:'Unstable rubble — structural risk'},
+];
+
+let feed = [
+  {type:'survivor', label:'SURVIVOR', time:'00:04:02', body:'S-3 confirmed via R-01 visual — conscious, minor injuries.'},
+  {type:'comm', label:'COMMS LOSS', time:'00:03:26', body:'R-02 signal dropped near east collapse. Holding last known position.'},
+  {type:'hazard', label:'HAZARD', time:'00:02:51', body:'Gas concentration rising, sector 7-E. Exclusion zone auto-generated.'},
+  {type:'route', label:'REROUTE', time:'00:02:10', body:'Primary corridor blocked. R-03 rerouted around debris field, +90s ETA.'},
+  {type:'survivor', label:'SURVIVOR', time:'00:01:15', body:'S-1 audio contact established, unconfirmed location radius 6m.'},
+];
+
+const fogRegions = [
+  {x:440,y:60,w:150,h:110},
+  {x:30,y:400,w:160,h:90},
+  {x:480,y:380,w:110,h:100},
+];
+const mappedRegion = "M20,20 L420,20 L420,180 L480,180 L480,420 L300,420 L300,480 L20,480 Z";
+const routes = [
+  {pts:"180,120 250,160 300,220", ok:true},
+  {pts:"300,220 380,240 410,300", ok:false, reroutePts:"300,220 350,280 410,300"},
+];
+
+/* ---------- RENDER ---------- */
+const svgNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs){
+  const e = document.createElementNS(svgNS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function renderMap(){
+  const svg = document.getElementById('map');
+  svg.innerHTML = '';
+
+  // base fog
+  svg.appendChild(el('rect',{x:0,y:0,width:600,height:500,fill:'var(--fog)'}));
+
+  // mapped/explored region
+  const mapped = el('path',{d:mappedRegion, fill:'#1A2420', stroke:'#2B3A34', 'stroke-width':1});
+  svg.appendChild(mapped);
+
+  // grid lines within mapped area only (subtle)
+  for(let i=0;i<600;i+=40){
+    svg.appendChild(el('line',{x1:i,y1:0,x2:i,y2:500,stroke:'#1A2420','stroke-width':0.5,opacity:0.5}));
+  }
+
+  // unmapped fog patches (explicit, on top)
+  fogRegions.forEach(f=>{
+    const g = el('g',{});
+    g.appendChild(el('rect',{x:f.x,y:f.y,width:f.w,height:f.h,fill:'#141B18',stroke:'#232B27','stroke-width':1,'stroke-dasharray':'4,3'}));
+    g.appendChild(el('text',{x:f.x+f.w/2,y:f.y+f.h/2,fill:'#4A5850','font-size':10,'text-anchor':'middle','font-family':'IBM Plex Mono'}));
+    g.lastChild.textContent = 'UNMAPPED';
+    svg.appendChild(g);
+  });
+
+  // hazard zones
+  hazards.forEach(h=>{
+    svg.appendChild(el('circle',{cx:h.x,cy:h.y,r:h.r,fill:'rgba(255,107,53,0.12)',stroke:'var(--hazard)','stroke-width':1.5,'stroke-dasharray':'5,4'}));
+  });
+
+  // routes
+  routes.forEach(r=>{
+    if(r.ok){
+      svg.appendChild(el('polyline',{points:r.pts, fill:'none', stroke:'var(--signal)', 'stroke-width':2}));
+    } else {
+      svg.appendChild(el('polyline',{points:r.pts, fill:'none', stroke:'var(--stale)', 'stroke-width':2, 'stroke-dasharray':'3,3', opacity:0.5}));
+      svg.appendChild(el('polyline',{points:r.reroutePts, fill:'none', stroke:'var(--hazard)', 'stroke-width':2, 'stroke-dasharray':'6,3'}));
+    }
+  });
+
+  // survivors
+  survivors.forEach(s=>{
+    const g = el('g',{style:'cursor:pointer'});
+    g.onclick = ()=>openSurvivorModal(s);
+    const ring = el('circle',{cx:s.x,cy:s.y,r:14,fill:'none',stroke:'var(--priority)','stroke-width':1,opacity:s.conf/100});
+    const dot = el('circle',{cx:s.x,cy:s.y,r:6,fill:'var(--priority)'});
+    const label = el('text',{x:s.x, y:s.y-20, fill:'#fff','font-size':10,'text-anchor':'middle','font-family':'IBM Plex Mono'});
+    label.textContent = s.id+' · '+s.conf+'%';
+    g.appendChild(ring); g.appendChild(dot); g.appendChild(label);
+    svg.appendChild(g);
+  });
+
+  // robots
+  robots.forEach(r=>{
+    const g = el('g',{style:'cursor:pointer'});
+    g.onclick = ()=>openRobotModal(r);
+    const color = r.status==='ok' ? 'var(--signal)' : r.status==='stale' ? 'var(--stale)' : 'var(--hazard)';
+    if(r.status==='stale'){
+      svg.appendChild(el('circle',{cx:r.x,cy:r.y,r:20,fill:'none',stroke:color,'stroke-width':1,'stroke-dasharray':'2,3',opacity:0.6}));
+    }
+    const sq = el('rect',{x:r.x-7,y:r.y-7,width:14,height:14,fill:color,rx:2, opacity: r.status==='stale'?0.55:1});
+    const label = el('text',{x:r.x, y:r.y-14, fill:'#fff','font-size':10,'text-anchor':'middle','font-family':'IBM Plex Mono'});
+    label.textContent = r.id;
+    g.appendChild(sq); g.appendChild(label);
+    svg.appendChild(g);
+  });
+}
+
+function renderFleet(){
+  const list = document.getElementById('fleet-list');
+  list.innerHTML = '';
+  robots.forEach(r=>{
+    const card = document.createElement('div');
+    card.className = 'robot-card ' + (r.status==='stale'?'stale':r.status==='warn'?'warn':'');
+    card.onclick = ()=>openRobotModal(r);
+    card.innerHTML = `
+      <div class="robot-top">
+        <span class="robot-id"><span class="dot ${r.status==='ok'?'ok':r.status==='stale'?'stale':'warn'}"></span>${r.id}</span>
+        <span style="color:var(--text-dim);font-size:11px">${r.battery}%</span>
+      </div>
+      <div class="robot-meta">last contact ${r.lastContact} · conf ${r.conf}%</div>
+      <div class="conf-bar"><div class="conf-fill" style="width:${r.conf}%"></div></div>
+    `;
+    list.appendChild(card);
+  });
+  document.getElementById('fleet-count').textContent = robots.length + ' units';
+  document.getElementById('stat-robots').textContent = robots.length;
+}
+
+function renderFeed(){
+  const list = document.getElementById('feed-list');
+  list.innerHTML = '';
+  feed.forEach(f=>{
+    const item = document.createElement('div');
+    item.className = 'feed-item';
+    item.innerHTML = `
+      <div class="feed-top"><span class="feed-type ${f.type}">${f.label}</span><span>${f.time}</span></div>
+      <div class="feed-body">${f.body}</div>
+    `;
+    list.appendChild(item);
+  });
+  document.getElementById('feed-count').textContent = feed.length + ' events';
+}
+
+/* ---------- MODALS ---------- */
+function openRobotModal(r){
+  const backdrop = document.getElementById('modal-backdrop');
+  document.getElementById('modal-content').innerHTML = `
+    <h2>${r.id}</h2>
+    <div class="sub">${r.note}</div>
+    <div class="field-row"><span class="l">Status</span><span>${r.status.toUpperCase()}</span></div>
+    <div class="field-row"><span class="l">Battery</span><span>${r.battery}%</span></div>
+    <div class="field-row"><span class="l">Last contact</span><span>${r.lastContact}</span></div>
+    <div class="field-row"><span class="l">Position confidence</span><span>${r.conf}%</span></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Dismiss</button>
+      <button class="btn" style="border-color:var(--signal);color:var(--signal)" onclick="closeModal()">Recall to base</button>
+    </div>
+  `;
+  backdrop.classList.add('show');
+}
+
+function openSurvivorModal(s){
+  const backdrop = document.getElementById('modal-backdrop');
+  document.getElementById('modal-content').innerHTML = `
+    <h2>${s.id}</h2>
+    <div class="sub">${s.note}</div>
+    <div class="field-row"><span class="l">Priority</span><span class="priority-tag ${s.priority==='high'?'high':'med'}">${s.priority.toUpperCase()}</span></div>
+    <div class="field-row"><span class="l">Detection confidence</span><span>${s.conf}%</span></div>
+    <div class="field-row"><span class="l">Method</span><span>${s.detected}</span></div>
+    <div class="field-row"><span class="l">Assigned robot</span><span>${s.assigned}</span></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Dismiss</button>
+      <button class="btn" style="border-color:var(--priority);color:var(--priority)" onclick="closeModal()">Dispatch nearest unit</button>
+    </div>
+  `;
+  backdrop.classList.add('show');
+}
+function closeModal(){ document.getElementById('modal-backdrop').classList.remove('show'); }
+document.getElementById('modal-backdrop').addEventListener('click', e=>{
+  if(e.target.id==='modal-backdrop') closeModal();
+});
+
+/* ---------- SIMULATION (demo interactivity) ---------- */
+function addFeedItem(type,label,body){
+  feed.unshift({type,label,time:'00:00:0'+Math.floor(Math.random()*9), body});
+  renderFeed();
+}
+
+function simulateSurvivor(){
+  const id = 'S-'+(survivors.length+1);
+  const x = 80+Math.random()*440, y = 60+Math.random()*380;
+  const conf = 30+Math.floor(Math.random()*40);
+  survivors.push({id,x,y,conf,priority: conf>60?'high':'med',detected:'thermal, unconfirmed',assigned:'unassigned',note:'New heat signature detected, awaiting confirmation.'});
+  document.getElementById('stat-survivors').textContent = survivors.length;
+  addFeedItem('survivor','SURVIVOR', id+' possible detection, confidence '+conf+'% — needs confirmation.');
+  renderMap();
+}
+
+function simulateHazard(){
+  const x = 80+Math.random()*440, y = 60+Math.random()*380;
+  hazards.push({x,y,r:35+Math.random()*25,label:'New hazard'});
+  document.getElementById('stat-hazards').textContent = hazards.length;
+  addFeedItem('hazard','HAZARD','New hazard zone flagged. Nearby routes marked for re-evaluation.');
+  renderMap();
+}
+
+/* ---------- CLOCK ---------- */
+let seconds = 4*3600+12*60+30;
+setInterval(()=>{
+  seconds++;
+  const h = String(Math.floor(seconds/3600)).padStart(2,'0');
+  const m = String(Math.floor((seconds%3600)/60)).padStart(2,'0');
+  const s = String(seconds%60).padStart(2,'0');
+  document.getElementById('elapsed').textContent = `${h}:${m}:${s}`;
+}, 1000);
+
+renderMap();
+renderFleet();
+renderFeed();
+</script>
+</body>
+</html>
