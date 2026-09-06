@@ -1,27 +1,21 @@
-# UXcelerate!
+## My Submission — AEGIS: Rescue Robot Coordination
 
-Welcome! Follow the steps below to participate and submit your entry.
+**By Neelima**
 
-## How to Participate
+### The problem
+Coordinating rescue robots after an earthquake isn't a navigation problem — it's an *uncertainty* problem. Maps are incomplete, robots go silent, survivor detections aren't always confirmed, and routes that were safe five minutes ago might not be now. A dashboard that hides that uncertainty gets people hurt.
 
-1. **Fork this repository**
-   Click the **Fork** button at the top right of this repo to create your own copy under your GitHub account.
+### Design decisions
 
-2. **Build your submission**
-   Work entirely within your forked repository. Design and build your UI/UX submission according to the challenge brief. Commit your work as you go so we can see your process.
+1. **Incomplete maps are shown, not hidden.** Unexplored areas are marked as visible "fog" zones on the map rather than left blank — operators always know what the robots *haven't* seen yet.
 
-3. **Deploy your project (optional)**
-   If you'd like, deploy your project (e.g. Vercel, Netlify, GitHub Pages) and add the live link to your repo's README or description. This isn't mandatory, but it's a great way to showcase your work.
+2. **Silence looks different from confirmation.** A robot that's lost communication is shown greyed out with a dashed uncertainty ring around its last known position — instead of pretending it's still live, the interface makes the *staleness* of that data obvious.
 
-4. **Submit your forked repo**
-   Once you're done, copy the link to your forked repository and submit it via the official submission form:
+3. **Survivor detections carry a confidence level.** Each survivor marker shows how it was detected (thermal-only vs. visually confirmed) and a confidence percentage, so responders can prioritize confirmed survivors over unconfirmed heat signatures.
 
-   👉 **[[UXcelerate]](https://docs.google.com/forms/d/e/1FAIpQLSdF-HbTXtL_Qk098nPxq8cwys_6ANyRC2fb8I2SQCcYy4XXuQ/viewform?usp=publish-editor)**
+4. **Route changes are visible events, not silent updates.** When a hazard blocks a path, the old route is struck through and the new one is drawn alongside it — so a reroute is something the operator notices and can question, not something that happens invisibly.
 
-## Notes
+### Try it
+Open `index.html` — or the live link below — and use the "Simulate detection" / "Simulate hazard" buttons top-right to see the map and incident feed update in real time.
 
-- Make sure your forked repo is public so we can review it.
-- Double-check your form submission includes the correct repo link before the deadline.
-- Reach out to the IEI team if you run into any issues.
-
-Good luck, and have fun building! 🎨
+**Live demo:** _[add your GitHub Pages link here once step 6 is done]_
